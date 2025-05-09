@@ -8,26 +8,41 @@
 #include <unordered_map>
 #include <vector>
 
+
 using namespace std;
 
+class HSTNode;  // 告诉编译器：有这么个类
 // Node structure for Balanced Binary Tree (AVL Tree)
 class BBTNode {
 public:
-    pair<int, vector<int>> node_id; // Quadtree node's unique ID
-    double weight; // Quadtree node's weight
-    double subtree_weight_sum; // Sum of weights in this subtree
-    shared_ptr<BBTNode> left, right, parent; // Left, Right children and Parent pointer
+    pair<int, vector<int>>       node_id; // Quadtree node's unique ID
+    double                       weight; // Quadtree node's weight
+    double                       subtree_weight_sum; // Sum of weights in this subtree
+    shared_ptr<HSTNode>          hst_ptr;              // 直接指向对应的 HSTNode
+    shared_ptr<BBTNode>          left, right, parent; // Left, Right children and Parent pointer
     int height; // Height of the node (used for balancing)
     
-    BBTNode(pair<int, vector<int>> id, double w) : 
-        node_id(id), weight(w), subtree_weight_sum(w), 
+    BBTNode(pair<int, vector<int>> id, double w, shared_ptr<HSTNode> hst) : 
+        node_id(id), weight(w), subtree_weight_sum(w), hst_ptr(hst),
         height(1), left(nullptr), right(nullptr), parent(nullptr) {}
 };
 
 // AVL Tree structure
 class AVLTree {
 public:
-        shared_ptr<BBTNode> root;
+    shared_ptr<BBTNode> root;
+    AVLTree() : root(nullptr) {}
+
+    void insert(pair<int, vector<int>> id, double weight, shared_ptr<HSTNode> hst_ptr);
+    void remove(pair<int, vector<int>> id, double weight);
+    bool contains(pair<int, vector<int>> id, double weight);
+    void clear();
+    void printInOrder(shared_ptr<BBTNode> node, double& total_weight, int& count) const;
+    shared_ptr<BBTNode> getRoot() const { return root; }
+
+    // 加权随机采样，返回包含 hst_ptr 的 BBTNode
+    shared_ptr<BBTNode> sample(double random_weight) const;
+
 private:
     // Helper functions for AVL Tree
     int getHeight(const shared_ptr<BBTNode>& node);
@@ -90,17 +105,19 @@ private:
         return y;
     }
 
-    shared_ptr<BBTNode> insertNode(shared_ptr<BBTNode> node, pair<int, vector<int>> id, double weight, shared_ptr<BBTNode> parent) {
+    shared_ptr<BBTNode> insertNode(shared_ptr<BBTNode>& node, pair<int, vector<int>> id, double weight, 
+        shared_ptr<HSTNode> hst_ptr, shared_ptr<BBTNode> parent) {
+        if (weight <= 1e-4) return node;
         if (!node) {
-            auto newNode = make_shared<BBTNode>(id, weight);
+            auto newNode = make_shared<BBTNode>(id, weight, hst_ptr);
             newNode->parent = parent;
             return newNode;
         }
 
         if (id < node->node_id) {
-            node->left = insertNode(node->left, id, weight, node);
+            node->left = insertNode(node->left, id, weight, hst_ptr, node);
         } else if (id > node->node_id) {
-            node->right = insertNode(node->right, id, weight, node);
+            node->right = insertNode(node->right, id, weight, hst_ptr, node);
         } else {
             return node; // Duplicate nodes not allowed
         }
@@ -131,8 +148,8 @@ private:
         return node;
     }
 
-    shared_ptr<BBTNode> deleteNode(shared_ptr<BBTNode> node, pair<int, vector<int>> id, double weight) {
-        if (!node) return node;
+    shared_ptr<BBTNode> deleteNode(shared_ptr<BBTNode>& node, pair<int, vector<int>> id, double weight) {
+        if (!node || weight <= 1e-4) return node;
 
         if (id < node->node_id) {
             node->left = deleteNode(node->left, id, weight);
@@ -155,7 +172,11 @@ private:
             }
         }
 
-        if (!node) return node;
+        if (!node) {
+            // TODO: 为什么会出现remove点找不到的情况？
+            // cout << "222 " << weight << endl;
+            return node;
+        }
 
         // Update height and subtree weight
         node->height = 1 + max(getHeight(node->left), getHeight(node->right));
@@ -191,62 +212,24 @@ private:
         return current;
     }
 
-    void updateNode(shared_ptr<BBTNode> node, pair<int, vector<int>> old_id, double old_weight, double new_weight) {
-        if (!node) return;
+    // void updateNode(shared_ptr<BBTNode> node, pair<int, vector<int>> old_id, double old_weight, double new_weight) {
+    //     if (!node) return;
 
-        if (old_id < node->node_id) {
-            updateNode(node->left, old_id, old_weight, new_weight);
-        } else if (old_id > node->node_id) {
-            updateNode(node->right, old_id, old_weight, new_weight);
-        } else {
-            node->weight = new_weight;
-        }
+    //     if (old_id < node->node_id) {
+    //         updateNode(node->left, old_id, old_weight, new_weight);
+    //     } else if (old_id > node->node_id) {
+    //         updateNode(node->right, old_id, old_weight, new_weight);
+    //     } else {
+    //         node->weight = new_weight;
+    //     }
 
-        // Update subtree weight sum
-        if (node) {
-            node->subtree_weight_sum = node->weight;
-            if (node->left) node->subtree_weight_sum += node->left->subtree_weight_sum;
-            if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
-        }
-    }
-
-public:
-    AVLTree() : root(nullptr) {}
-
-    // Public interfaces for AVL Tree
-    void insert(pair<int, vector<int>> id, double weight);
-    void remove(pair<int, vector<int>> id, double weight);
-    // void update(pair<int, vector<int>> old_id, double old_weight, double new_weight);
-    bool contains(pair<int, vector<int>> id, double weight);
-    void clear(); // 清空AVL树
-    void printInOrder(shared_ptr<BBTNode> node, double& total_weight, int& count) const;
-    shared_ptr<BBTNode> getRoot() const { return root; }
-    
-    std::shared_ptr<BBTNode> sample(double random_weight) const {
-        if (!root || random_weight <= 0) return nullptr;
-    
-        std::shared_ptr<BBTNode> current = root;
-
-        while (current) {
-            double left_sum = current->left ? current->left->subtree_weight_sum : 0;
-    
-            if (random_weight < left_sum) {
-                current = current->left;
-            } else if (random_weight < left_sum + current->weight) {
-                return current;
-            } else {
-                random_weight -= (left_sum + current->weight);
-                current = current->right;
-            }
-            // std::cerr << "Visiting node: weight=" << current->weight 
-            // << ", left_sum=" << left_sum 
-            // << ", subtree_weight_sum=" << current->subtree_weight_sum 
-            // << ", random_weight=" << random_weight << std::endl;
-
-        }
-    
-        return nullptr;
-    }    
+    //     // Update subtree weight sum
+    //     if (node) {
+    //         node->subtree_weight_sum = node->weight;
+    //         if (node->left) node->subtree_weight_sum += node->left->subtree_weight_sum;
+    //         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
+    //     }
+    // }
 };
 
 #endif

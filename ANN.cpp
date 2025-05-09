@@ -113,8 +113,8 @@ ANN::ANN(int n, double r_min, double r_max, double rho) : approx_ratio(ceil(1 / 
 	//const int row_length = int(log(n) / log(1/0.8)) + 2;
 	//const int band_number = int(pow(n, rho)) + 8;
 
-	const int row_length = 3;
-	const int band_number = 5;
+	const int row_length = 5;
+	const int band_number = 20;
 
 	for (int i = 0; i < num_r; ++i) {
 		PLEB* pleb = new PLEB(row_length, band_number, radius[i]);

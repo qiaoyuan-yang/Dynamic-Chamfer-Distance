@@ -2,7 +2,6 @@
 #include <vector>
 #include <cmath>
 #include <iostream> // for std::ostream
-#include "FALCONN/external/eigen/Eigen/Dense"  // 添加 Eigen
 
 typedef unsigned long long uint64;
 
@@ -12,7 +11,6 @@ struct point {
 
     // 构造函数支持 std::vector 和 Eigen::VectorXf
     point(const std::vector<double>& coordinate, int label = -1);
-    point(const Eigen::VectorXf& vec, int label = -1);  // 新增的构造函数
 
     double& operator[](int idx);
     const double& operator[](int idx) const;

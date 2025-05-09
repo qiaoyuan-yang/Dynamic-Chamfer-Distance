@@ -2,11 +2,6 @@
 
 point::point(const std::vector<double>& v, int label) : v(v), label(label) { }
 
-// 新增：从 Eigen::VectorXf 构造 point
-point::point(const Eigen::VectorXf& vec, int label) : label(label) {
-    v = std::vector<double>(vec.data(), vec.data() + vec.size());
-}
-
 double& point::operator[](int idx) {
     return v[idx];
 }

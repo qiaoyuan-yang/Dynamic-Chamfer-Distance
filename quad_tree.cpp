@@ -5,11 +5,15 @@
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <map>
+#include <cassert>
 
 #include "quad_tree.h"
 
 using namespace std;
 
+static std::random_device rd;
+static std::mt19937 gen_sample(rd());
 
 
 HSTNode::HSTNode(int d, const vector<int>& i, const vector<double>& o, double w)
@@ -21,10 +25,8 @@ void HSTNode::Build_Node_Sampler() {
 
     for (auto& child : children) {
         double weight = child.second->B_count > 0 ? 0 : child.second->A_count;
-        if (weight > 0) {
-            node_sampler.insert(make_pair(child.second->depth, child.second->id_in_depth), weight);
-            node_total_weight += weight;
-        }
+        node_sampler.insert(make_pair(child.second->depth, child.second->id_in_depth), weight, child.second);
+        node_total_weight += weight;
     }
 }
 
@@ -228,10 +230,8 @@ void QuadTree::Update_Sampler(){}
 std::shared_ptr<HSTNode> QuadTree::sample_node_by_weight(std::shared_ptr<HSTNode> node) {
     if (!node || node->node_total_weight <= 0) return nullptr;
     
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, node->node_total_weight);
-    double random_weight = dis(gen);
+    double random_weight = dis(gen_sample);
     
     // 从node_sampler中采样子节点
     std::shared_ptr<BBTNode> sampled = node->node_sampler.sample(random_weight);
@@ -277,9 +277,7 @@ void QuadTree::Build_Tree_Sampler() {
         
         // 添加到AVL树
         auto node_id = std::make_pair(node->depth, node->id_in_depth);
-        if (weight > 0) {  // 只添加weight>0的节点
-            weight_tree.insert(node_id, weight);
-        }
+        weight_tree.insert(node_id, weight, node);
         
         // 递归处理子节点
         for (auto& child : node->children) {
@@ -290,35 +288,66 @@ void QuadTree::Build_Tree_Sampler() {
     build_weights(root);
 }
 
+int countNonZeroNodes_AVL(const std::shared_ptr<BBTNode>& node, double threshold = 1e-4) {
+    if (!node) return 0;
+
+    int count = (node->weight > threshold) ? 1 : 0;
+    count += countNonZeroNodes_AVL(node->left, threshold);
+    count += countNonZeroNodes_AVL(node->right, threshold);
+    return count;
+}
+
+int countNonZeroNodes_quadtree(const std::shared_ptr<HSTNode>& node, double threshold = 1e-4) {
+    if (!node) return 0;
+
+    int count = (node->tree_weight > threshold) ? 1 : 0;
+    for (auto& child : node->children) {
+        count += countNonZeroNodes_quadtree(child.second, threshold);
+    }
+
+    return count;
+}
+
 std::shared_ptr<HSTNode> QuadTree::sample_by_weight() {
+    // int count1 = countNonZeroNodes_AVL(weight_tree.getRoot());
+    // int count2 = countNonZeroNodes_quadtree(root);
+
+    // std::cout << "Tree 1 non-zero nodes: " << count1 << std::endl;
+    // std::cout << "Tree 2 non-zero nodes: " << count2 << std::endl;
+
+
     if (!root || total_weight <= 0) return nullptr;
     
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, total_weight);
-    double random_weight = dis(gen);
+    double random_weight = dis(gen_sample);
     // cout << random_weight << endl;
     
     // Use AVL tree's improved sampling method
     std::shared_ptr<BBTNode> result = weight_tree.sample(random_weight);
     if (!result) return nullptr;
-    
-    // Find corresponding HSTNode
-    std::function<std::shared_ptr<HSTNode>(std::shared_ptr<HSTNode>)> find_node = 
-        [&](std::shared_ptr<HSTNode> node) -> std::shared_ptr<HSTNode> {
-            if (!node) return nullptr;
-            if (node->depth == result->node_id.first && 
-                node->id_in_depth == result->node_id.second) {
-                return node;
-            }
-            for (auto& child : node->children) {
-                auto found = find_node(child.second);
-                if (found) return found;
-            }
-            return nullptr;
-        };
-    
-    return find_node(root);
+
+    // 直接从 bbt->hst_ptr 拿到 HSTNode
+    return result ? result->hst_ptr : nullptr;
+
+
+    // if (!result) return nullptr;
+
+    // // Find corresponding HSTNode
+    // std::function<std::shared_ptr<HSTNode>(std::shared_ptr<HSTNode>)> find_node = 
+    //     [&](std::shared_ptr<HSTNode> node) -> std::shared_ptr<HSTNode> {
+    //         if (!node) return nullptr;
+    //         if (node->depth == result->node_id.first && 
+    //             node->id_in_depth == result->node_id.second) {
+    //             return node;
+    //         }
+    //         for (auto& child : node->children) {
+    //             auto found = find_node(child.second);
+    //             if (found) return found;
+    //         }
+    //         return nullptr;
+    //     };
+
+    // return find_node(root);
 }
 
 
@@ -344,7 +373,7 @@ void QuadTree::insert_update_A(shared_ptr<HSTNode> node, int C, const vector<dou
                 //     new_weight
                 // );
                 node->parent->node_sampler.remove(make_pair(node->depth, node->id_in_depth), old_weight);
-                if (new_weight > 0) node->parent->node_sampler.insert(make_pair(node->depth, node->id_in_depth), new_weight);
+                node->parent->node_sampler.insert(make_pair(node->depth, node->id_in_depth), new_weight, node);
                 node->parent->node_total_weight += 1;
             }
         }
@@ -367,10 +396,8 @@ void QuadTree::insert_update_A(shared_ptr<HSTNode> node, int C, const vector<dou
         
         if (fabs(old_weight - new_weight) > 1e-4) {
             // 使用旧值和新值更新AVL树
-            // cout << "222 " << node->width  << " " <<  node->match_count << endl;
-            // cout << "2221 " << old_weight  << " " <<  new_weight << endl;
             weight_tree.remove(node_id, old_weight);
-            if (new_weight > 0)weight_tree.insert(node_id, new_weight);
+            weight_tree.insert(node_id, new_weight, node);
         }
         
         node = node->parent;
@@ -414,7 +441,7 @@ void QuadTree::insert_update_B(shared_ptr<HSTNode> node, int C){
         // 使用旧值和新值更新AVL树
         // weight_tree.update(node_id, old_weight, new_weight);
         weight_tree.remove(node_id, old_weight);
-        if (new_weight > 0) weight_tree.insert(node_id, new_weight);
+        weight_tree.insert(node_id, new_weight, node);
     }
 
     // 递归更新父节点
@@ -455,9 +482,9 @@ shared_ptr<HSTNode> QuadTree::insert_recursive(shared_ptr<HSTNode>& node, const 
         node->children[bs] = child_node;
         assert(child_node.get() != node.get());
         
-        // 插入对应的AVL节点，初始match_count为0
-        auto node_id = make_pair(child_node->depth, child_node->id_in_depth);
-        weight_tree.insert(node_id, 0);
+        // // 插入对应的AVL节点，初始match_count为0
+        // auto node_id = make_pair(child_node->depth, child_node->id_in_depth);
+        // weight_tree.insert(node_id, 0);
     }
 
     return insert_recursive(node->children[bs], point, label, depth + 1);
@@ -528,7 +555,7 @@ void QuadTree::delete_update_A(shared_ptr<HSTNode> node, int C) {
                 //     new_weight
                 // );
                 node->parent->node_sampler.remove(make_pair(node->depth, node->id_in_depth), old_weight);
-                if (new_weight > 0) node->parent->node_sampler.insert(make_pair(node->depth, node->id_in_depth), new_weight);
+                node->parent->node_sampler.insert(make_pair(node->depth, node->id_in_depth), new_weight, node);
                 node->parent->node_total_weight -= 1;
             }
         }
@@ -552,7 +579,7 @@ void QuadTree::delete_update_A(shared_ptr<HSTNode> node, int C) {
             // 使用旧值和新值更新AVL树
             // weight_tree.update(node_id, old_weight, new_weight);
             weight_tree.remove(node_id, old_weight);
-            if (new_weight > 0) weight_tree.insert(node_id, new_weight);
+            weight_tree.insert(node_id, new_weight, node);
         }
         
         node = node->parent;
@@ -565,9 +592,10 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
     if (node->parent) {
         if (node->B_count == 1) { // 即将从1变为0
             // 重新添加该节点到父节点sampler
-            if (node->A_count > 0)  node->parent->node_sampler.insert(
+            node->parent->node_sampler.insert(
                 make_pair(node->depth, node->id_in_depth),
-                node->A_count
+                node->A_count,
+                node
             );
             node->parent->node_total_weight += node->A_count;
         }
@@ -585,6 +613,7 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
     double old_weight = node->tree_weight;
     total_weight -= old_weight;
     double new_weight = node->width * node->match_count;
+    node->tree_weight = new_weight;
     total_weight += new_weight;
 
     auto node_id = std::make_pair(node->depth, node->id_in_depth);
@@ -593,7 +622,7 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
         // 使用旧值和新值更新AVL树
         // weight_tree.update(node_id, old_weight, new_weight);
         weight_tree.remove(node_id, old_weight);
-        if (new_weight > 0) weight_tree.insert(node_id, new_weight);
+        weight_tree.insert(node_id, new_weight, node);
     }
 
     // 递归更新父节点
