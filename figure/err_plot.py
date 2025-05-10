@@ -20,8 +20,8 @@ data = pd.read_csv(csv_path)
 
 # 绘图
 plt.figure(figsize=(10, 5))
-plt.plot(data['step'], data['our_err'].abs(), color='blue', marker='o', linestyle='-', linewidth=1.5, markersize=3, label='Ours')
-plt.plot(data['step'], data['uni_err'].abs(), color='orange', marker='s', linestyle='--', linewidth=1.5, markersize=3, label='Uniform')
+plt.plot(data['step'], data['our_err'], color='blue', marker='o', linestyle='-', linewidth=1.5, markersize=3, label='Ours')
+plt.plot(data['step'], data['uni_err'], color='orange', marker='s', linestyle='--', linewidth=1.5, markersize=3, label='Uniform')
 
 plt.title('text embedding')
 plt.xlabel('Time Step')

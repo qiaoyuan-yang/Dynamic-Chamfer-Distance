@@ -26,7 +26,7 @@ double compute_2approx_diameter(const std::vector<std::vector<double> >& P);
  * @return 两个数据集的aspect ratio
  */ 
 double calculate_aspect_ratio(const std::vector<std::vector<double> >& A,
-                            const std::vector<std::vector<double> >& B, int max_dist);
+                            const std::vector<std::vector<double> >& B, double max_dist);
 
 /**
  * 计算quadtree所需深度

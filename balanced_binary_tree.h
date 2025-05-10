@@ -8,10 +8,10 @@
 #include <unordered_map>
 #include <vector>
 
+class HSTNode;  // 告诉编译器：有这么个类
 
 using namespace std;
 
-class HSTNode;  // 告诉编译器：有这么个类
 // Node structure for Balanced Binary Tree (AVL Tree)
 class BBTNode {
 public:
@@ -35,13 +35,30 @@ public:
 
     void insert(pair<int, vector<int>> id, double weight, shared_ptr<HSTNode> hst_ptr);
     void remove(pair<int, vector<int>> id, double weight);
-    bool contains(pair<int, vector<int>> id, double weight);
     void clear();
     void printInOrder(shared_ptr<BBTNode> node, double& total_weight, int& count) const;
     shared_ptr<BBTNode> getRoot() const { return root; }
 
     // 加权随机采样，返回包含 hst_ptr 的 BBTNode
     shared_ptr<BBTNode> sample(double random_weight) const;
+
+    bool contains(pair<int, vector<int>> id, double weight) {
+        auto node = root;
+        while (node) {
+            if (isLess(weight, id, node->weight, node->node_id)) {
+                node = node->left;
+            }
+            else if (isGreater(weight, id, node->weight, node->node_id)) {
+                node = node->right;
+            }
+            else {
+                // (weight, id) 与当前节点完全相等
+                return true;
+            }
+        }
+        return false;
+    }
+    
 
 private:
     // Helper functions for AVL Tree
@@ -105,104 +122,160 @@ private:
         return y;
     }
 
-    shared_ptr<BBTNode> insertNode(shared_ptr<BBTNode>& node, pair<int, vector<int>> id, double weight, 
-        shared_ptr<HSTNode> hst_ptr, shared_ptr<BBTNode> parent) {
+    // 定义比较算法：先比 weight，weight 相等时再比 id
+    bool isLess (double w1, const pair<int, vector<int>>& id1,
+        double w2, const pair<int, vector<int>>& id2) {
+        if (w1 < w2) return true;
+        if (w1 > w2) return false;
+        return id1 < id2;
+    };
+    bool isGreater (double w1, const pair<int, vector<int>>& id1,
+            double w2, const pair<int, vector<int>>& id2) {
+        if (w1 > w2) return true;
+        if (w1 < w2) return false;
+        return id1 > id2;
+    };
+
+    shared_ptr<BBTNode> insertNode(
+        shared_ptr<BBTNode>& node,
+        const pair<int, vector<int>>& id,
+        double weight,
+        shared_ptr<HSTNode> hst_ptr,
+        shared_ptr<BBTNode> parent)
+    {
+        // 过滤过轻节点
         if (weight <= 1e-4) return node;
+    
+        // 空树情况：新建节点
         if (!node) {
             auto newNode = make_shared<BBTNode>(id, weight, hst_ptr);
             newNode->parent = parent;
             return newNode;
         }
-
-        if (id < node->node_id) {
+    
+        // 按 (weight, id) 决定插入左子树还是右子树
+        if (isLess(weight, id, node->weight, node->node_id)) {
             node->left = insertNode(node->left, id, weight, hst_ptr, node);
-        } else if (id > node->node_id) {
-            node->right = insertNode(node->right, id, weight, hst_ptr, node);
-        } else {
-            return node; // Duplicate nodes not allowed
         }
-
-        // Update height and subtree weight
+        else if (isGreater(weight, id, node->weight, node->node_id)) {
+            node->right = insertNode(node->right, id, weight, hst_ptr, node);
+        }
+        else {
+            // 完全相同（weight 和 id 都相等），不插入重复节点
+            return node;
+        }
+    
+        // 更新高度和子树权重和
         node->height = 1 + max(getHeight(node->left), getHeight(node->right));
         node->subtree_weight_sum = node->weight;
-        if (node->left) node->subtree_weight_sum += node->left->subtree_weight_sum;
+        if (node->left)  node->subtree_weight_sum += node->left->subtree_weight_sum;
         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
-
-        // Rebalance tree
+    
+        // 计算平衡因子并做 AVL 旋转
         int balance = getBalanceFactor(node);
-        if (balance > 1 && id < node->left->node_id) {
+    
+        // LL 型
+        if (balance > 1 &&
+            isLess(weight, id, node->left->weight, node->left->node_id))
+        {
             return rightRotate(node);
         }
-        if (balance < -1 && id > node->right->node_id) {
+        // RR 型
+        if (balance < -1 &&
+            isGreater(weight, id, node->right->weight, node->right->node_id))
+        {
             return leftRotate(node);
         }
-        if (balance > 1 && id > node->left->node_id) {
+        // LR 型
+        if (balance > 1 &&
+            isGreater(weight, id, node->left->weight, node->left->node_id))
+        {
             node->left = leftRotate(node->left);
             return rightRotate(node);
         }
-        if (balance < -1 && id < node->right->node_id) {
+        // RL 型
+        if (balance < -1 &&
+            isLess(weight, id, node->right->weight, node->right->node_id))
+        {
             node->right = rightRotate(node->right);
             return leftRotate(node);
         }
-
+    
         return node;
     }
+    
 
-    shared_ptr<BBTNode> deleteNode(shared_ptr<BBTNode>& node, pair<int, vector<int>> id, double weight) {
+    shared_ptr<BBTNode> deleteNode(
+        shared_ptr<BBTNode>& node,
+        pair<int, vector<int>> id,
+        double weight)
+    {
+        // 空节点或权重过小，直接返回
         if (!node || weight <= 1e-4) return node;
-
-        if (id < node->node_id) {
+    
+        // 根据 (weight, id) 决定向左还是向右递归删除
+        if (isLess(weight, id, node->weight, node->node_id)) {
             node->left = deleteNode(node->left, id, weight);
-        } else if (id > node->node_id) {
+        }
+        else if (isGreater(weight, id, node->weight, node->node_id)) {
             node->right = deleteNode(node->right, id, weight);
-        } else {
+        }
+        else {
+            // 找到待删节点（权重和 id 完全相等）
             if (!node->left || !node->right) {
+                // 只有一个子节点或无子节点
                 shared_ptr<BBTNode> temp = node->left ? node->left : node->right;
                 if (!temp) {
+                    // 无子节点：直接删除
                     temp = node;
                     node = nullptr;
                 } else {
+                    // 有一个子节点：用子节点替代
                     *node = *temp;
                 }
             } else {
+                // 有两个子节点：找到后继（右子树最小）
                 shared_ptr<BBTNode> temp = minValueNode(node->right);
+                // 用后继的数据覆盖当前节点
                 node->node_id = temp->node_id;
-                node->weight = temp->weight;
+                node->weight  = temp->weight;
+                node->hst_ptr = temp->hst_ptr;
+                // 删除后继节点
                 node->right = deleteNode(node->right, temp->node_id, temp->weight);
             }
         }
-
-        if (!node) {
-            // TODO: 为什么会出现remove点找不到的情况？
-            // cout << "222 " << weight << endl;
-            return node;
-        }
-
-        // Update height and subtree weight
+    
+        if (!node) return node;
+    
+        // 更新高度和子树权重和
         node->height = 1 + max(getHeight(node->left), getHeight(node->right));
         node->subtree_weight_sum = node->weight;
-        if (node->left) node->subtree_weight_sum += node->left->subtree_weight_sum;
+        if (node->left)  node->subtree_weight_sum += node->left->subtree_weight_sum;
         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
-
-        // Rebalance tree
+    
+        // 重新平衡 AVL 树
         int balance = getBalanceFactor(node);
+        // LL 型
         if (balance > 1 && getBalanceFactor(node->left) >= 0) {
             return rightRotate(node);
         }
+        // LR 型
         if (balance > 1 && getBalanceFactor(node->left) < 0) {
             node->left = leftRotate(node->left);
             return rightRotate(node);
         }
+        // RR 型
         if (balance < -1 && getBalanceFactor(node->right) <= 0) {
             return leftRotate(node);
         }
+        // RL 型
         if (balance < -1 && getBalanceFactor(node->right) > 0) {
             node->right = rightRotate(node->right);
             return leftRotate(node);
         }
-
+    
         return node;
-    }
+    }    
 
     shared_ptr<BBTNode> minValueNode(shared_ptr<BBTNode> node) {
         shared_ptr<BBTNode> current = node;

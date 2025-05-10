@@ -1,5 +1,5 @@
 #include "balanced_binary_tree.h"
-#include "quad_tree.h" 
+#include "quad_tree.h"
 
 // TODO: When building, sort by weight first, then by id. The smaller id in the left.
 // Get the height of a node
@@ -26,24 +26,6 @@ void AVLTree::remove(pair<int, vector<int>> id, double weight) {
 // void AVLTree::update(pair<int, vector<int>> old_id, double old_weight, double new_weight) {
 //     updateNode(root, old_id, old_weight, new_weight);
 // }
-
-// Check if a node exists in the AVL Tree
-bool AVLTree::contains(pair<int, vector<int>> id, double weight) {
-    shared_ptr<BBTNode> node = root;
-    while (node) {
-        if (node->weight == weight) {
-            if (node->node_id == id)
-                return true;
-            else
-                node = (id < node->node_id) ? node->left : node->right;
-        } else if (weight < node->weight) {
-            node = node->left;  
-        } else {
-            node = node->right;
-        }
-    }
-    return false;
-}
 
 // Print the AVL Tree in order
 void AVLTree::clear() {
@@ -78,7 +60,7 @@ std::shared_ptr<BBTNode> AVLTree::sample(double random_weight) const {
 
         if (random_weight < left_sum) {
             current = current->left;
-        } else if (random_weight < left_sum + current->weight) {
+        } else if (random_weight <= left_sum + current->weight) {
             return current;
         } else {
             random_weight -= (left_sum + current->weight);

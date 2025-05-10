@@ -37,8 +37,9 @@ double compute_2approx_diameter(const vector<vector<double> >& P) {
 }
 
 // 计算两个数据集之间的aspect ratio
-double calculate_aspect_ratio(const vector<vector<double> >& A, const vector<vector<double> >& B, int max_dist) {
+double calculate_aspect_ratio(const vector<vector<double> >& A, const vector<vector<double> >& B, double max_dist) {
     double min_dist = 1e-4;
+    cout << max_dist << " " << min_dist << endl;
     return max_dist / min_dist;
 }
 

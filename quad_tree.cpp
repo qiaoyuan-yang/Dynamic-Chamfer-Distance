@@ -21,7 +21,7 @@ HSTNode::HSTNode(int d, const vector<int>& i, const vector<double>& o, double w)
 
 void HSTNode::Build_Node_Sampler() {
     node_sampler.clear();
-    node_total_weight = 0;
+    node_total_weight = 0.0;
 
     for (auto& child : children) {
         double weight = child.second->B_count > 0 ? 0 : child.second->A_count;
@@ -43,9 +43,10 @@ QuadTree::QuadTree(int d, double delta, int max_depth)
 
 
 // Transform vector<int> to bitset to be the key of unordered_map
-bitset<1024> QuadTree::to_bitset(const vector<int>& vec) {
-    if (vec.size() > 1024) throw out_of_range("Error: child_idx size exceeds the limit of 1024 bits.");
-    bitset<1024> bs;
+template <std::size_t N>
+bitset<N> QuadTree::to_bitset(const vector<int>& vec) {
+    if (vec.size() > N) throw out_of_range("Error: child_idx size exceeds the limit of DIM bits.");
+    bitset<N> bs;
     for (size_t i = 0; i < vec.size(); ++i){
         if (vec[i] != 0 && vec[i] != 1) {
             throw invalid_argument("Error: Invalid index value. Got vec[" + to_string(i) + "] = " + to_string(vec[i]) + ", must be 0 or 1.");
@@ -60,7 +61,7 @@ bitset<1024> QuadTree::to_bitset(const vector<int>& vec) {
 vector<int> QuadTree::point_to_grid_index(const vector<double>& point, const vector<double>& origin, double width) {
     vector<int> child_idx(point.size());
     for (size_t i = 0; i < point.size(); ++i){
-        child_idx[i] = static_cast<int>((point[i] - origin[i]) / (width / 2));
+        child_idx[i] = static_cast<int>((point[i] - origin[i]) / (width / 2.0));
     }
     return child_idx;
 }
@@ -100,8 +101,20 @@ void QuadTree::build(const vector<vector<double>>& A, const vector<vector<double
         // cout << "root origin: " << root_origin[i] << endl;
     }
 
-    shared_ptr<HSTNode> parent_node = nullptr;
-    root = build_subtree(c_A, c_B, 0, root_origin, root_origin, delta, parent_node);
+    if (c_A.size() == 0 && c_B.size() == 0){
+        vector<int> root_id(dim, 0);
+        root = make_shared<HSTNode>(0, root_id, root_origin, delta);
+        root->Build_Node_Sampler();
+        root->A_count = 0;
+        root->B_count = 0;
+        root->match_count = 0;
+        root->is_leaf = false;
+        root->parent = nullptr;
+        // cout << "root->width: " << root->width << endl;
+    }else{
+        shared_ptr<HSTNode> parent_node = nullptr;
+        root = build_subtree(c_A, c_B, 0, root_origin, root_origin, delta, parent_node);
+    }
 }
 
 
@@ -119,13 +132,13 @@ vector<int> QuadTree::calculate_current_id(const vector<double>& current_origin,
 
 
 void QuadTree::add_points_to_subbuckets(const vector<vector<double>>& points_A, const vector<vector<double>>& points_B, 
-                                               unordered_map<bitset<1024>, vector<pair<string, vector<double>>>>& buckets,
+                                               unordered_map<bitset<DIM>, vector<pair<string, vector<double>>>>& buckets,
                                                const vector<double>& current_origin, double width) {
     // Add points from A into the subgrids
     // cout << "width: " << width << endl;
     for (const auto& pt : points_A) {
         vector<int> child_idx = point_to_grid_index(pt, current_origin, width);
-        bitset<1024> child_idx_bitset = to_bitset(child_idx);
+        auto child_idx_bitset = to_bitset(child_idx);
         // if (std::fabs(width - 18.0011) < 1e-4) cout << "create: " << child_idx_bitset << endl;
         buckets[child_idx_bitset].emplace_back("A", pt);
     }
@@ -133,13 +146,13 @@ void QuadTree::add_points_to_subbuckets(const vector<vector<double>>& points_A, 
     // Add points from B into the subgrids
     for (const auto& pt : points_B) {
         vector<int> child_idx = point_to_grid_index(pt, current_origin, width);
-        bitset<1024> child_idx_bitset = to_bitset(child_idx);
-        if (std::fabs(width - 18.0011) < 1e-4) {
+        auto child_idx_bitset = to_bitset(child_idx);
+        // if (std::fabs(width - 18.0011) < 1e-4) {
             // cout << "point: ";
             // for (int i = 0; i < pt.size(); i++) cout << pt[i] << " ";
             // cout << endl;
             // cout << "create: " << child_idx_bitset << endl;
-        }
+        // }
         // if (buckets.find(child_idx_bitset) != buckets.end()) {
         buckets[child_idx_bitset].emplace_back("B", pt);
         // }
@@ -147,7 +160,7 @@ void QuadTree::add_points_to_subbuckets(const vector<vector<double>>& points_A, 
 }
 
 
-void QuadTree::process_subgrid(shared_ptr<HSTNode>& node, const unordered_map<bitset<1024>, vector<pair<string, vector<double>>>>& buckets,
+void QuadTree::process_subgrid(shared_ptr<HSTNode>& node, const unordered_map<bitset<DIM>, vector<pair<string, vector<double>>>>& buckets,
                                const vector<double>& current_origin, const vector<double>& root_origin, double width, int depth) {
     // For each subgrid, recursively build the tree
     for (const auto& bucket : buckets) {
@@ -182,20 +195,20 @@ void QuadTree::process_subgrid(shared_ptr<HSTNode>& node, const unordered_map<bi
 
 shared_ptr<HSTNode> QuadTree::build_subtree(const vector<vector<double>>& points_A, const vector<vector<double>>& points_B, 
     int depth, const vector<double>& current_origin, const vector<double>& root_origin, double width, shared_ptr<HSTNode>& parent_node) {
+    // 对depth的id
     vector<int> current_id = calculate_current_id(current_origin, root_origin, width);
     
     auto node = make_shared<HSTNode>(depth, current_id, current_origin, width);
+    node->Build_Node_Sampler();
     node->A_count = points_A.size();
     // 如果只有一个A点，记录下来
     if (node->A_count == 1) {
         node->single_A_point = points_A[0];
     }
-    if (node->B_count == 1) {
-        // cout << "leaf B: " << points_B[0] << endl;
-    }
+
     node->B_count = points_B.size();
-    node->parent = parent_node;
     assert(parent_node.get() != node.get());
+    node->parent = parent_node;
     node->is_leaf = false;
 
     // 计算当前层的匹配数
@@ -205,7 +218,8 @@ shared_ptr<HSTNode> QuadTree::build_subtree(const vector<vector<double>>& points
         }
     }
 
-    if (depth >= max_depth) {
+    assert(depth <= max_depth && "depth exceeded max_depth");
+    if (depth == max_depth) {
         node->is_leaf = true;
         return node;
     }
@@ -216,7 +230,7 @@ shared_ptr<HSTNode> QuadTree::build_subtree(const vector<vector<double>>& points
     }
 
     // Divide points A and B into subgrids
-    unordered_map<bitset<1024>, vector<pair<string, vector<double>>>> buckets;
+    unordered_map<bitset<DIM>, vector<pair<string, vector<double>>>> buckets;
     add_points_to_subbuckets(points_A, points_B, buckets, current_origin, width);
 
     // Process each subgrid recursively
@@ -320,7 +334,7 @@ std::shared_ptr<HSTNode> QuadTree::sample_by_weight() {
     
     std::uniform_real_distribution<> dis(0.0, total_weight);
     double random_weight = dis(gen_sample);
-    // cout << random_weight << endl;
+    // cout << "random_weight: " << random_weight << endl;
     
     // Use AVL tree's improved sampling method
     std::shared_ptr<BBTNode> result = weight_tree.sample(random_weight);
@@ -407,16 +421,6 @@ void QuadTree::insert_update_A(shared_ptr<HSTNode> node, int C, const vector<dou
 
 void QuadTree::insert_update_B(shared_ptr<HSTNode> node, int C){
     // 更新当前节点
-    // 增量更新父节点的sampler
-    if (node->parent) {
-        if (node->B_count == 0) {
-            // 从父节点sampler中移除该节点
-            node->parent->node_sampler.remove(
-                make_pair(node->depth, node->id_in_depth), node->A_count
-            );
-            node->parent->node_total_weight -= node->A_count;
-        }
-    }
     node->B_count += 1;
     if (node->B_count == 1){
         node->match_count = node->A_count - C;
@@ -426,6 +430,16 @@ void QuadTree::insert_update_B(shared_ptr<HSTNode> node, int C){
         C = 0;
     }
     
+    // 增量更新父节点的sampler
+    if (node->parent) {
+        if (node->B_count == 1) {
+            // 从父节点sampler中移除该节点
+            node->parent->node_sampler.remove(
+                make_pair(node->depth, node->id_in_depth), node->A_count
+            );
+            node->parent->node_total_weight -= node->A_count;
+        }
+    }
     // 保存旧weight并更新total_weight
     double old_weight = node->tree_weight;
     total_weight -= old_weight;
@@ -478,6 +492,7 @@ shared_ptr<HSTNode> QuadTree::insert_recursive(shared_ptr<HSTNode>& node, const 
         double new_width = node->width / 2;
         vector<int> new_id = calculate_current_id(child_origin, root_origin, new_width);
         auto child_node = make_shared<HSTNode>(depth + 1, new_id, child_origin, new_width);
+        child_node->Build_Node_Sampler();
         child_node->parent = node;
         node->children[bs] = child_node;
         assert(child_node.get() != node.get());
@@ -588,9 +603,23 @@ void QuadTree::delete_update_A(shared_ptr<HSTNode> node, int C) {
 
 void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
     // 更新当前节点
+    node->B_count--;
+    if (node->B_count == 0){
+        node->match_count = 0;
+        C = node->A_count;
+    }else{
+        node->match_count += C;
+        C = 0;
+    }
+
+    // 递归更新父节点
+    auto parent_node = node->parent;
+    if (parent_node != nullptr) this->delete_update_B(parent_node, C);
+    
+
     // 增量更新父节点的sampler
     if (node->parent) {
-        if (node->B_count == 1) { // 即将从1变为0
+        if (node->B_count == 0) { // 即将从1变为0
             // 重新添加该节点到父节点sampler
             node->parent->node_sampler.insert(
                 make_pair(node->depth, node->id_in_depth),
@@ -600,15 +629,6 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
             node->parent->node_total_weight += node->A_count;
         }
     }
-    node->B_count--;
-    if (node->B_count == 0){
-        node->match_count = 0;
-        C = node->A_count;
-    }else{
-        node->match_count += C;
-        C = 0;
-    }
-    
     // 直接更新当前节点的weight
     double old_weight = node->tree_weight;
     total_weight -= old_weight;
@@ -616,16 +636,11 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
     node->tree_weight = new_weight;
     total_weight += new_weight;
 
-    auto node_id = std::make_pair(node->depth, node->id_in_depth);
-
     if (fabs(old_weight - new_weight) > 1e-4) {
+        auto node_id = std::make_pair(node->depth, node->id_in_depth);
         // 使用旧值和新值更新AVL树
         // weight_tree.update(node_id, old_weight, new_weight);
         weight_tree.remove(node_id, old_weight);
         weight_tree.insert(node_id, new_weight, node);
     }
-
-    // 递归更新父节点
-    auto parent_node = node->parent;
-    if (parent_node != nullptr) this->delete_update_B(parent_node, C);
 }

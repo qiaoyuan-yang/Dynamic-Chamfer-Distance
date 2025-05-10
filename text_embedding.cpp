@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <string>
 
-const int DIM = 300;
+// const int DIM = 300;
 // A_size = 1880
 // B_size = 1178
 const double dataset_dmin = 1e-4;
