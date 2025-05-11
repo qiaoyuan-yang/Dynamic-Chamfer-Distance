@@ -10,19 +10,17 @@
 
 class HSTNode;  // 告诉编译器：有这么个类
 
-using namespace std;
-
 // Node structure for Balanced Binary Tree (AVL Tree)
 class BBTNode {
 public:
-    pair<int, vector<int>>       node_id; // Quadtree node's unique ID
+    std::pair<int, std::vector<int>>       node_id; // Quadtree node's unique ID
     double                       weight; // Quadtree node's weight
     double                       subtree_weight_sum; // Sum of weights in this subtree
-    shared_ptr<HSTNode>          hst_ptr;              // 直接指向对应的 HSTNode
-    shared_ptr<BBTNode>          left, right, parent; // Left, Right children and Parent pointer
+    std::shared_ptr<HSTNode>          hst_ptr;              // 直接指向对应的 HSTNode
+    std::shared_ptr<BBTNode>          left, right, parent; // Left, Right children and Parent pointer
     int height; // Height of the node (used for balancing)
     
-    BBTNode(pair<int, vector<int>> id, double w, shared_ptr<HSTNode> hst) : 
+    BBTNode(std::pair<int, std::vector<int>> id, double w, std::shared_ptr<HSTNode> hst) : 
         node_id(id), weight(w), subtree_weight_sum(w), hst_ptr(hst),
         height(1), left(nullptr), right(nullptr), parent(nullptr) {}
 };
@@ -30,19 +28,19 @@ public:
 // AVL Tree structure
 class AVLTree {
 public:
-    shared_ptr<BBTNode> root;
+    std::shared_ptr<BBTNode> root;
     AVLTree() : root(nullptr) {}
 
-    void insert(pair<int, vector<int>> id, double weight, shared_ptr<HSTNode> hst_ptr);
-    void remove(pair<int, vector<int>> id, double weight);
+    void insert(std::pair<int, std::vector<int>> id, double weight, std::shared_ptr<HSTNode> hst_ptr);
+    void remove(std::pair<int, std::vector<int>> id, double weight);
     void clear();
-    void printInOrder(shared_ptr<BBTNode> node, double& total_weight, int& count) const;
-    shared_ptr<BBTNode> getRoot() const { return root; }
+    void printInOrder(std::shared_ptr<BBTNode> node, double& total_weight, int& count) const;
+    std::shared_ptr<BBTNode> getRoot() const { return root; }
 
     // 加权随机采样，返回包含 hst_ptr 的 BBTNode
-    shared_ptr<BBTNode> sample(double random_weight) const;
+    std::shared_ptr<BBTNode> sample(double random_weight) const;
 
-    bool contains(pair<int, vector<int>> id, double weight) {
+    bool contains(std::pair<int, std::vector<int>> id, double weight) {
         auto node = root;
         while (node) {
             if (isLess(weight, id, node->weight, node->node_id)) {
@@ -62,11 +60,11 @@ public:
 
 private:
     // Helper functions for AVL Tree
-    int getHeight(const shared_ptr<BBTNode>& node);
-    int getBalanceFactor(const shared_ptr<BBTNode>& node);
-    shared_ptr<BBTNode> rightRotate(shared_ptr<BBTNode> y) {
-        shared_ptr<BBTNode> x = y->left;
-        shared_ptr<BBTNode> T2 = x->right;
+    int getHeight(const std::shared_ptr<BBTNode>& node);
+    int getBalanceFactor(const std::shared_ptr<BBTNode>& node);
+    std::shared_ptr<BBTNode> rightRotate(std::shared_ptr<BBTNode> y) {
+        std::shared_ptr<BBTNode> x = y->left;
+        std::shared_ptr<BBTNode> T2 = x->right;
 
         // Perform rotation
         x->right = y;
@@ -78,8 +76,8 @@ private:
         if (T2) T2->parent = y;
 
         // Update heights
-        y->height = max(getHeight(y->left), getHeight(y->right)) + 1;
-        x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
+        y->height = std::max(getHeight(y->left), getHeight(y->right)) + 1;
+        x->height = std::max(getHeight(x->left), getHeight(x->right)) + 1;
 
         // Update subtree weights
         y->subtree_weight_sum = y->weight;
@@ -93,9 +91,9 @@ private:
         return x;
     }
 
-    shared_ptr<BBTNode> leftRotate(shared_ptr<BBTNode> x) {
-        shared_ptr<BBTNode> y = x->right;
-        shared_ptr<BBTNode> T2 = y->left;
+    std::shared_ptr<BBTNode> leftRotate(std::shared_ptr<BBTNode> x) {
+        std::shared_ptr<BBTNode> y = x->right;
+        std::shared_ptr<BBTNode> T2 = y->left;
 
         // Perform rotation
         y->left = x;
@@ -107,8 +105,8 @@ private:
         if (T2) T2->parent = x;
 
         // Update heights
-        x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
-        y->height = max(getHeight(y->left), getHeight(y->right)) + 1;
+        x->height = std::max(getHeight(x->left), getHeight(x->right)) + 1;
+        y->height = std::max(getHeight(y->left), getHeight(y->right)) + 1;
 
         // Update subtree weights
         x->subtree_weight_sum = x->weight;
@@ -123,32 +121,32 @@ private:
     }
 
     // 定义比较算法：先比 weight，weight 相等时再比 id
-    bool isLess (double w1, const pair<int, vector<int>>& id1,
-        double w2, const pair<int, vector<int>>& id2) {
+    bool isLess (double w1, const std::pair<int, std::vector<int>>& id1,
+        double w2, const std::pair<int, std::vector<int>>& id2) {
         if (w1 < w2) return true;
         if (w1 > w2) return false;
         return id1 < id2;
     };
-    bool isGreater (double w1, const pair<int, vector<int>>& id1,
-            double w2, const pair<int, vector<int>>& id2) {
+    bool isGreater (double w1, const std::pair<int, std::vector<int>>& id1,
+            double w2, const std::pair<int, std::vector<int>>& id2) {
         if (w1 > w2) return true;
         if (w1 < w2) return false;
         return id1 > id2;
     };
 
-    shared_ptr<BBTNode> insertNode(
-        shared_ptr<BBTNode>& node,
-        const pair<int, vector<int>>& id,
+    std::shared_ptr<BBTNode> insertNode(
+        std::shared_ptr<BBTNode>& node,
+        const std::pair<int, std::vector<int>>& id,
         double weight,
-        shared_ptr<HSTNode> hst_ptr,
-        shared_ptr<BBTNode> parent)
+        std::shared_ptr<HSTNode> hst_ptr,
+        std::shared_ptr<BBTNode> parent)
     {
         // 过滤过轻节点
         if (weight <= 1e-4) return node;
     
         // 空树情况：新建节点
         if (!node) {
-            auto newNode = make_shared<BBTNode>(id, weight, hst_ptr);
+            auto newNode = std::make_shared<BBTNode>(id, weight, hst_ptr);
             newNode->parent = parent;
             return newNode;
         }
@@ -166,7 +164,7 @@ private:
         }
     
         // 更新高度和子树权重和
-        node->height = 1 + max(getHeight(node->left), getHeight(node->right));
+        node->height = 1 + std::max(getHeight(node->left), getHeight(node->right));
         node->subtree_weight_sum = node->weight;
         if (node->left)  node->subtree_weight_sum += node->left->subtree_weight_sum;
         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
@@ -205,9 +203,9 @@ private:
     }
     
 
-    shared_ptr<BBTNode> deleteNode(
-        shared_ptr<BBTNode>& node,
-        pair<int, vector<int>> id,
+    std::shared_ptr<BBTNode> deleteNode(
+        std::shared_ptr<BBTNode>& node,
+        std::pair<int, std::vector<int>> id,
         double weight)
     {
         // 空节点或权重过小，直接返回
@@ -224,7 +222,7 @@ private:
             // 找到待删节点（权重和 id 完全相等）
             if (!node->left || !node->right) {
                 // 只有一个子节点或无子节点
-                shared_ptr<BBTNode> temp = node->left ? node->left : node->right;
+                std::shared_ptr<BBTNode> temp = node->left ? node->left : node->right;
                 if (!temp) {
                     // 无子节点：直接删除
                     temp = node;
@@ -235,7 +233,7 @@ private:
                 }
             } else {
                 // 有两个子节点：找到后继（右子树最小）
-                shared_ptr<BBTNode> temp = minValueNode(node->right);
+                std::shared_ptr<BBTNode> temp = minValueNode(node->right);
                 // 用后继的数据覆盖当前节点
                 node->node_id = temp->node_id;
                 node->weight  = temp->weight;
@@ -248,7 +246,7 @@ private:
         if (!node) return node;
     
         // 更新高度和子树权重和
-        node->height = 1 + max(getHeight(node->left), getHeight(node->right));
+        node->height = 1 + std::max(getHeight(node->left), getHeight(node->right));
         node->subtree_weight_sum = node->weight;
         if (node->left)  node->subtree_weight_sum += node->left->subtree_weight_sum;
         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
@@ -277,32 +275,13 @@ private:
         return node;
     }    
 
-    shared_ptr<BBTNode> minValueNode(shared_ptr<BBTNode> node) {
-        shared_ptr<BBTNode> current = node;
+    std::shared_ptr<BBTNode> minValueNode(std::shared_ptr<BBTNode> node) {
+        std::shared_ptr<BBTNode> current = node;
         while (current->left) {
             current = current->left;
         }
         return current;
     }
-
-    // void updateNode(shared_ptr<BBTNode> node, pair<int, vector<int>> old_id, double old_weight, double new_weight) {
-    //     if (!node) return;
-
-    //     if (old_id < node->node_id) {
-    //         updateNode(node->left, old_id, old_weight, new_weight);
-    //     } else if (old_id > node->node_id) {
-    //         updateNode(node->right, old_id, old_weight, new_weight);
-    //     } else {
-    //         node->weight = new_weight;
-    //     }
-
-    //     // Update subtree weight sum
-    //     if (node) {
-    //         node->subtree_weight_sum = node->weight;
-    //         if (node->left) node->subtree_weight_sum += node->left->subtree_weight_sum;
-    //         if (node->right) node->subtree_weight_sum += node->right->subtree_weight_sum;
-    //     }
-    // }
 };
 
 #endif

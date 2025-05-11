@@ -1,6 +1,8 @@
 #include "balanced_binary_tree.h"
 #include "quad_tree.h"
 
+using namespace std;
+
 // TODO: When building, sort by weight first, then by id. The smaller id in the left.
 // Get the height of a node
 int AVLTree::getHeight(const shared_ptr<BBTNode>& node) {

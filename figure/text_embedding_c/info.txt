@@ -1,0 +1,12 @@
+n_10: 
+window_size = n / 10
+window_size: 117 query_interval: 21
+runnig time:
+our time: 1120.36
+uniform time: 660.617
+benchmark time: 1200.39
+
+
+n_3:
+window_size = n / 3
+window_size: 390 query_interval: 15

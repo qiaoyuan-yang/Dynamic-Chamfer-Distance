@@ -32,7 +32,7 @@ class QuadTree {
 public:
     QuadTree(int d, double delta, int max_depth);
     void build(const std::vector<std::vector<double>>& A, const std::vector<std::vector<double>>& B, 
-        const vector<vector<double>>& c_A, const vector<vector<double>>& c_B);
+        const std::vector<std::vector<double>>& c_A, const std::vector<std::vector<double>>& c_B);
     std::shared_ptr<HSTNode> sample_by_weight(); // 基于全局weight_tree采样
     std::shared_ptr<HSTNode> sample_node_by_weight(std::shared_ptr<HSTNode> node); // 基于node_sampler采样子节点
     std::shared_ptr<HSTNode> getRoot() { return root; }
@@ -54,9 +54,9 @@ public:
           << " weight: "      << root->tree_weight
           << std::endl;
         for (auto i : root->origin){
-            cout << i << " ";
+            std::cout << i << " ";
         }
-        cout << endl;
+        std::cout << std::endl;
     
         for (const auto& [key, child] : root->children) {
             dfs_quadtree(child);
@@ -71,6 +71,16 @@ private:
     std::shared_ptr<HSTNode> root;
     std::vector<double> root_origin;
 
+    struct Frame {
+        std::shared_ptr<HSTNode>    parent;     // 父节点指针，根节点为 nullptr
+        int                         depth;      // 当前深度
+        std::vector<size_t>         idxsA;      // 本格子中 A 数据集点的下标
+        std::vector<size_t>         idxsB;      // 本格子中 B 数据集点的下标
+        std::vector<double>         origin;     // 本格子左下角坐标
+        double                      width;      // 本格子边长
+        std::bitset<DIM>            grid_id;    // 在父节点 children map 中的 key
+    };
+
     template <std::size_t N = DIM>
     std::bitset<N> to_bitset(const std::vector<int>& vec);
     std::vector<int> point_to_grid_index(const std::vector<double>& point, const std::vector<double>& origin, double width);
@@ -81,7 +91,7 @@ private:
     void add_points_to_subbuckets(const std::vector<std::vector<double>>& points_A, const std::vector<std::vector<double>>& points_B, 
         std::unordered_map<std::bitset<DIM>, std::vector<std::pair<std::string, std::vector<double>>>>& buckets,
         const std::vector<double>& current_origin, double width);
-    void process_subgrid(std::shared_ptr<HSTNode>& node, const std::unordered_map<std::bitset<DIM>, std::vector<std::pair<std::string, std::vector<double>>>>& buckets,
+    void process_subgrid(std::shared_ptr<HSTNode>& node, std::unordered_map<std::bitset<DIM>, std::vector<std::pair<std::string, std::vector<double>>>>& buckets,
         const std::vector<double>& current_origin, const std::vector<double>& root_origin, double width, int depth);
     std::shared_ptr<HSTNode> insert_recursive(std::shared_ptr<HSTNode>& node, const std::vector<double>& point, char label, int depth);
     std::shared_ptr<HSTNode> remove_recursive(std::shared_ptr<HSTNode> node, const std::vector<double>& point, char label, int depth);

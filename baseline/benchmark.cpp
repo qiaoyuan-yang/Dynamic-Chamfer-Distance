@@ -6,6 +6,7 @@
 using std::vector;
 using std::size_t;
 
+using namespace std;
 
 static double euclidean(const vector<double>& p1,
                         const vector<double>& p2) {
@@ -23,16 +24,14 @@ DynamicChamfer::DynamicChamfer(const vector<vector<double>>& A_init,
                                const vector<vector<double>>& B_init)
   : A(A_init), B(B_init)
 {
-    if (A.empty() || B.empty())
-        throw std::invalid_argument("A or B cannot be empty.");
+    if (A.empty())
+        throw std::invalid_argument("A cannot be empty.");
     dim = A[0].size();
-    for (auto& a : A)
-        if (a.size() != dim)
-            throw std::invalid_argument("There are points of different dimensions in A.");
-    for (auto& b : B)
-        if (b.size() != dim)
-            throw std::invalid_argument("There are points of different dimensions in B.");
-    init_direction(A, B, minDistAB, nnAB, sumAB);
+    if (B.empty()){
+        minDistAB.assign(A.size(), std::numeric_limits<double>::infinity());
+        nnAB   .assign(A.size(), DYNAMIC_CHAMFER_NPOS);
+        sumAB = 0.0;
+    }else init_direction(A, B, minDistAB, nnAB, sumAB);
     // init_direction(B, A, minDistBA, nnBA, sumBA);
 }
 
@@ -127,7 +126,11 @@ void DynamicChamfer::update_insert(const vector<vector<double>>& S,
     for (size_t i = 0; i < S.size(); ++i) {
         double d = euclidean(S[i], t_new);
         if (d < minDist[i]) {
-            sumDist  += (d - minDist[i]);
+            if (minDist[i] == std::numeric_limits<double>::infinity()) {
+                sumDist += d;  
+            } else {
+                sumDist += (d - minDist[i]);  // 常规更新
+            }
             minDist[i] = d;
             nnIdx[i]   = idx;
         }

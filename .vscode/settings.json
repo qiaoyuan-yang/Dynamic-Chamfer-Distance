@@ -57,6 +57,8 @@
         "list": "cpp",
         "regex": "cpp",
         "valarray": "cpp",
-        "forward_list": "cpp"
+        "forward_list": "cpp",
+        "type_traits": "cpp",
+        "fstream": "cpp"
     }
 }
