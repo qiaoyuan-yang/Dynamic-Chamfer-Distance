@@ -25,8 +25,8 @@ plt.plot(data['step'], data['our_err'].abs(), color='blue', marker='o', linestyl
 plt.plot(data['step'], data['uni_err'].abs(), color='orange', marker='s', linestyle='--', linewidth=1.5, markersize=3, label='Uniform')
 
 # plt.title('Gaussion point')
-plt.title('text embedding')
-# plt.title('MNIST')
+# plt.title('text embedding')
+plt.title('MNIST')
 plt.xlabel('Time Step')
 plt.ylabel('Error (x - chamfer) / chamfer')
 plt.grid(True, linestyle='--', alpha=0.5)

@@ -727,12 +727,22 @@ void QuadTree::delete_update_B(shared_ptr<HSTNode> node, int C) {
 
     // 递归更新父节点
     auto parent_node = node->parent;
-    if (parent_node != nullptr) this->delete_update_B(parent_node, C);
+    if (parent_node != nullptr) {
+        if (node -> A_count == 0 && node->B_count == 0 && node->children.empty()){
+            /* 在 parent->children 中找到当前 node 的 key */
+            auto it = std::find_if(parent_node->children.begin(), parent_node->children.end(),
+                                [&](auto& kv){ return kv.second.get() == node.get(); });
+            if (it == parent_node->children.end()) throw std::logic_error("prune: child node not found in parent->children map");
+            std::bitset<DIM> key = it->first;
+            parent_node->children.erase(key);
+        }
+        this->delete_update_B(parent_node, C);
+    }
     
 
     // 增量更新父节点的sampler
     if (node->parent) {
-        if (node->B_count == 0) { // 即将从1变为0
+        if (node->B_count == 0 && node->A_count != 0) { // 即将从1变为0
             // 重新添加该节点到父节点sampler
             node->parent->node_sampler.insert(
                 make_pair(node->depth, node->id_in_depth),

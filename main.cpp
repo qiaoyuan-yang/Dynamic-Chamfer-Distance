@@ -16,6 +16,7 @@
 #include "ANN-Oracle.h"
 #include "baseline/benchmark.h"
 #include <sys/resource.h>
+#include <mach/mach.h>
 // #include <omp.h>
 
 
@@ -23,6 +24,19 @@ using namespace std;
 using Clock = std::chrono::high_resolution_clock;
 using Duration = std::chrono::duration<double, std::milli>;
 static thread_local std::mt19937 gen(std::random_device{}());
+
+
+std::size_t getCurrentRSSBytes()
+{
+    struct mach_task_basic_info info;
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(),
+                  MACH_TASK_BASIC_INFO,
+                  reinterpret_cast<task_info_t>(&info),
+                  &count) != KERN_SUCCESS)
+        return 0;
+    return info.resident_size;          // 单位：Bytes
+}
 
 
 double sample_point_uniformly(
@@ -136,8 +150,8 @@ int main() {
     // std::vector<std::vector<double>> B = read_csv("test_dataset/B3.csv");
 
     // 2. 计算滑动窗口参数,首先定windoesize，然后根据需要50个query output定query_interval
-    int window_size = B.size() / 100;  // 3
-    int query_interval = max(static_cast<int>(B.size() / 56), 1);  //75
+    int window_size = B.size() / 100;  // 3  100
+    int query_interval = max(static_cast<int>(B.size() / 56), 1);  //75  56
     cout << "window_size: " << window_size << " query_interval: " << query_interval << endl;
 
     // 3. 计算数据集全局参数
@@ -233,10 +247,10 @@ int main() {
         // tree,benchamrk,uniform
         auto start1 = Clock::now();
         // if (stream[i].second == 'B') 
-        ann_oracle->insert(p);
+        // ann_oracle->insert(p);
         if (window.size() > window_size) {
             // if (window.front().second == 'B') 
-            ann_oracle->erase(p);
+            // ann_oracle->erase(p);
         }
         auto end1 = Clock::now();
         auto time1 = Duration(end1 - start1);
@@ -253,6 +267,10 @@ int main() {
         }
 
         if (i >= window_size && i % query_interval == 0) {
+            std::size_t mem = getCurrentRSSBytes();
+            std::cout << "[Iter " << i
+                    << "]  RSS = " << mem / 1024.0 / 1024.0 << " MB\n";
+
             std::vector<std::vector<double>> B_vec(
                 current_B.begin(),
                 current_B.end()
@@ -287,6 +305,7 @@ int main() {
                 for (int r = 0; r < R; ++r) {
                     our_costs[r] = sample_futs[r].get();
                 }
+                // auto mid = our_costs.begin() + (our_costs.size() - 1)/2;
                 auto mid = our_costs.begin() + our_costs.size()/2;
                 nth_element(our_costs.begin(), mid, our_costs.end());
                 double our_median_cost = *mid;
