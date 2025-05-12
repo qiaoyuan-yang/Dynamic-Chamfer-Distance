@@ -167,7 +167,7 @@ int main() {
 
     // 4. 并行构建 R 个 Quadtree 副本
     auto start_ours1 = Clock::now();
-    const int R = 2;
+    const int R = 5;
     vector<future<QuadTree>> build_futs;
     build_futs.reserve(R);
     for (int r = 0; r < R; ++r) {
